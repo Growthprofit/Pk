@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Growth Profit</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        :root {
+            --primary-color: #0d6efd;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+            --body-color: #f0f2f5;
+            --sidebar-color: #FFF;
+            --text-color: #707070;
+            --dark-color: #212529;
+            --tran-03: all 0.3s ease;
+            --tran-05: all 0.5s ease;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { height: 100vh; background-color: var(--body-color); }
+        .hidden { display: none !important; }
+
+        /* --- Menu Toggle (3 Lines) --- */
+        #menu-toggle {
+            display: none; position: fixed; top: 15px; left: 15px; z-index: 1001; font-size: 24px;
+            background: #fff; border-radius: 50%; width: 45px; height: 45px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer; display: flex;
+            align-items: center; justify-content: center; color: var(--primary-color);
+            transition: var(--tran-03);
+        }
+
+        /* --- Custom Notification Box Styles --- */
+        #notification-box {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 25px;
+            border-radius: 8px; color: white; font-size: 16px; z-index: 9999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: top 0.5s ease, opacity 0.5s ease;
+        }
+        #notification-box.success { background-color: var(--success-color); }
+        #notification-box.danger { background-color: var(--danger-color); }
+        #notification-box.hidden { top: -100px; opacity: 0; }
+        
+        /* --- NAYA: Custom Confirmation Modal Styles --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); z-index: 10000;
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .modal-overlay:not(.hidden) { opacity: 1; }
+        .modal-content {
+            background: #fff; padding: 30px; border-radius: 12px;
+            width: 90%; max-width: 450px; text-align: center;
+            transform: scale(0.9); transition: transform 0.3s;
+        }
+        .modal-overlay:not(.hidden) .modal-content { transform: scale(1); }
+        .modal-content h3 { margin-top: 0; color: var(--dark-color); }
+        .modal-content p { margin: 15px 0 25px; color: var(--text-color); }
+        .modal-buttons { display: flex; gap: 15px; }
+        .modal-btn {
+            width: 100%; padding: 12px; border: none; border-radius: 8px;
+            font-size: 16px; font-weight: bold; cursor: pointer; transition: opacity 0.3s;
+        }
+        .modal-btn:hover { opacity: 0.9; }
+        .modal-btn.confirm { background: var(--success-color); color: white; }
+        .modal-btn.cancel { background: #eee; color: var(--text-color); }
+
+
+        /* --- Sidebar --- */
+        .sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 250px; padding: 10px 14px; background: var(--sidebar-color); transition: var(--tran-05); z-index: 1000; overflow-y: auto; }
+        .sidebar header { position: relative; }
+        .sidebar .image-text .header-text { display: flex; flex-direction: column; }
+        .sidebar .image { min-width: 60px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+        .sidebar .logo-text { font-size: 20px; font-weight: 600; color: var(--dark-color); }
+        .sidebar li { height: 50px; list-style: none; display: flex; align-items: center; margin-top: 10px; }
+        .sidebar li .icon { min-width: 60px; border-radius: 6px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .sidebar li .icon, .sidebar li .text { color: var(--text-color); transition: var(--tran-03); }
+        .sidebar li a { list-style: none; height: 100%; background-color: transparent; display: flex; align-items: center; width: 100%; border-radius: 6px; text-decoration: none; transition: var(--tran-03); }
+        .sidebar li a:hover, .sidebar li a.active { background-color: var(--primary-color); }
+        .sidebar li a:hover .icon, .sidebar li a:hover .text, .sidebar li a.active .icon, .sidebar li a.active .text { color: var(--sidebar-color); }
+        .sidebar .menu-bar { height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* --- Main Content --- */
+        .main-content { position: relative; left: 250px; height: 100vh; width: calc(100% - 250px); background-color: var(--body-color); transition: var(--tran-05); padding: 20px; overflow-y: auto; }
+        
+        /* --- Reusable & Page Specific Styles --- */
+        h2 { color: var(--dark-color); margin-bottom: 20px; }
+        .content-section { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+        input, select { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; background: #f9f9f9; }
+        button { width: 100%; padding: 14px; background: linear-gradient(90deg, #0d6efd, #0dcaf0); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; transition: opacity 0.3s; }
+        button:hover { opacity: 0.9; }
+        .card { background: linear-gradient(135deg, #0d6efd, #6f42c1); color: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
+        .investment-plans, .task-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .plan-card, .task-card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05); transition: transform 0.2s; }
+        .invest-btn { background: var(--success-color); }
+        .claim-btn:disabled { background: #6c757d; cursor: not-allowed; }
+
+        @media (max-width: 768px) {
+            #menu-toggle { display: flex; }
+            .sidebar { left: -250px; }
+            .sidebar.open { left: 0; box-shadow: 0 0 25px rgba(0,0,0,0.2); }
+            .main-content { left: 0; width: 100%; padding-top: 80px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="notification-box" class="hidden"></div>
+    <div id="menu-toggle" class="hidden"><i class='bx bx-menu'></i></div>
+    
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <!-- Sidebar ka baaqi code waisa hi rahega -->
+        <header>
+            <div class="image-text">
+                <span class="image"><i class='bx bxl-firebase' style="font-size: 30px; color: #ffcb2b;"></i></span>
+                <div class="text logo-text"><span class="name">Growth Profit</span></div>
+            </div>
+        </header>
+        <div class="menu-bar">
+            <div class="menu">
+                <ul class="menu-links">
+                    <li><a href="#" class="active" onclick="showSection('home', this)"><i class='bx bx-home-alt icon'></i><span class="text">Dashboard</span></a></li>
+                    <li><a href="#" onclick="showSection('deposit', this)"><i class='bx bx-wallet icon'></i><span class="text">Deposit</span></a></li>
+                    <li><a href="#" onclick="showSection('invest', this)"><i class='bx bx-trending-up icon'></i><span class="text">Investment</span></a></li>
+                    <li><a href="#" onclick="showSection('task', this)"><i class='bx bx-task icon'></i><span class="text">Tasks</span></a></li>
+                    <li><a href="#" onclick="showSection('send', this)"><i class='bx bx-send icon'></i><span class="text">Send Money</span></a></li>
+                    <li><a href="#" onclick="showSection('history', this)"><i class='bx bx-history icon'></i><span class="text">History</span></a></li>
+                    <li><a href="#" onclick="showSection('profile', this)"><i class='bx bx-user icon'></i><span class="text">Profile</span></a></li>
+                    <li><a href="#" onclick="logoutUser()"><i class='bx bx-log-out icon'></i><span class="text">Logout</span></a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <section class="main-content">
+        <div id="auth-section" style="max-width: 450px; margin: 20px auto;"></div>
+        <div id="dashboard-container" class="hidden"></div>
+    </section>
+
+    <!-- NAYA: Custom Confirmation Modal HTML -->
+    <div id="confirmation-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="modal-title">Confirm Investment</h3>
+            <p id="modal-text">Are you sure you want to invest?</p>
+            <div class="modal-buttons">
+                <button id="modal-cancel-btn" class="modal-btn cancel">Cancel</button>
+                <button id="modal-confirm-btn" class="modal-btn confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.1/firebase-database.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCbxBpV2-UN0xyo26mgF2K6HQ_qOJLCHf4",
+            authDomain: "fastshare-90e03.firebaseapp.com",
+            projectId: "fastshare-90e03",
+            storageBucket: "fastshare-90e03.firebasestorage.app",
+            messagingSenderId: "641122672614",
+            appId: "1:641122672614:web:1adf3edffd4b5c9c1c4027"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+        let currentUser = null;
+        let countdownIntervals = {};
+
+        const investmentPlans = [
+            { id: 1, name: "Plan 1", invest: 20, daily: 2.3, validity: 365 }, { id: 2, name: "Plan 2", invest: 50, daily: 5.3, validity: 365 },
+            { id: 3, name: "Plan 3", invest: 100, daily: 10.2, validity: 365 }, { id: 4, name: "Plan 4", invest: 250, daily: 25.1, validity: 365 },
+            { id: 5, name: "Plan 5", invest: 500, daily: 50.3, validity: 365 }, { id: 6, name: "Plan 6", invest: 1000, daily: 98.1, validity: 365 },
+            { id: 7, name: "Plan 7", invest: 3000, daily: 295.2, validity: 365 }, { id: 8, name: "Plan 8", invest: 7000, daily: 685.2, validity: 365 },
+            { id: 9, name: "Plan 9", invest: 15000, daily: 1430.2, validity: 365 }, { id: 10, name: "Plan 10", invest: 50000, daily: 5100.7, validity: 365 },
+        ];
+
+        // --- Baaqi sab functions wese hi rahenge, sirf 'investNow' tabdeel hoga ---
+
+        function showNotification(message, type = 'success') {
+            const notificationBox = document.getElementById('notification-box');
+            notificationBox.innerText = message;
+            notificationBox.className = type; 
+            notificationBox.classList.remove('hidden');
+            setTimeout(() => { notificationBox.classList.add('hidden'); }, 3000);
+        }
+
+        const sidebar = document.querySelector('.sidebar');
+        const menuToggle = document.getElementById('menu-toggle');
+        const authContainer = document.getElementById('auth-section');
+        const dashboardContainer = document.getElementById('dashboard-container');
+        menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+        function showSection(sectionId, navLink) {
+            document.querySelectorAll('#dashboard-container .content-section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(sectionId + '-content').classList.remove('hidden');
+            document.querySelectorAll('.sidebar .menu-links a').forEach(a => a.classList.remove('active'));
+            if(navLink) navLink.classList.add('active');
+            if (window.innerWidth <= 768 && sidebar.classList.contains('open')) sidebar.classList.remove('open');
+        }
+        function toggleForms() { document.getElementById('login-container').classList.toggle('hidden'); document.getElementById('signup-container').classList.toggle('hidden'); }
+        function initializeHTML() {
+            authContainer.innerHTML = `<div id="login-container" class="content-section"><h2>Login</h2><input type="text" id="login-number" placeholder="Phone Number"><input type="password" id="login-password" placeholder="Password"><button onclick="loginUser()">Login</button><p style="text-align:center; margin-top:20px;">No account? <a href="#" onclick="toggleForms()">Sign Up</a></p></div><div id="signup-container" class="content-section hidden"><h2>Sign Up</h2><input type="email" id="signup-email" placeholder="Email"><input type="text" id="signup-number" placeholder="Phone Number"><input type="password" id="signup-password" placeholder="Password"><button onclick="signupUser()">Sign Up</button><p style="text-align:center; margin-top:20px;">Have an account? <a href="#" onclick="toggleForms()">Login</a></p></div>`;
+            dashboardContainer.innerHTML = `<div id="home-content" class="content-section"><div class="card"><h3>Current Balance</h3><h2 id="current-balance" style="font-size:2.5rem;color:white;">Rs. 0.00</h2></div><h2>Welcome, <span id="user-email-display"></span>!</h2><p>Manage everything from the sidebar menu.</p></div><div id="deposit-content" class="content-section hidden"><h2>Deposit Funds</h2><p>Send to <strong>03262550724</strong> (Easypaisa/Jazzcash).</p><input type="number" id="deposit-amount" placeholder="Min Amount Rs. 20"><select id="payment-method"><option>Easypaisa</option><option>Jazzcash</option></select><input type="text" id="transaction-id" placeholder="Transaction ID"><input type="text" id="sending-number" placeholder="Your Sending Number"><button onclick="submitDeposit()">Submit</button></div><div id="invest-content" class="content-section hidden"><h2>Investment Plans</h2><div id="investment-plans-container" class="investment-plans"></div></div><div id="task-content" class="content-section hidden"><h2>Daily Tasks</h2><p>Claim daily earnings from your active plans.</p><div id="task-list-container" class="task-list"></div></div><div id="send-content" class="content-section hidden"><h2>Send Money</h2><input type="number" id="withdraw-amount" placeholder="Amount"><select id="withdraw-method"><option>Easypaisa</option><option>Jazzcash</option></select><input type="text" id="withdraw-account" placeholder="Account Number"><button onclick="submitWithdrawal()">Request</button></div><div id="history-content" class="content-section hidden"><h2>Transaction History</h2><h3 style="margin-top:20px">Deposits</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>TID</th><th>Status</th></tr></thead><tbody id="deposit-history-table"></tbody></table></div><h3 style="margin-top:30px">Investments</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Plan</th><th>Amount</th><th>Status</th></tr></thead><tbody id="investment-history-table"></tbody></table></div><h3 style="margin-top:30px">Withdrawals</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Account</th><th>Status</th></tr></thead><tbody id="withdrawal-history-table"></tbody></table></div></div><div id="profile-content" class="content-section hidden"><h2>My Profile</h2><p><strong>Email:</strong> <span id="profile-email"></span></p><p><strong>Phone:</strong> <span id="profile-number"></span></p><p><strong>Member Since:</strong> <span id="profile-signup-date"></span></p></div>`;
+        }
+        initializeHTML();
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                authContainer.classList.add('hidden');
+                dashboardContainer.classList.remove('hidden');
+                menuToggle.classList.remove('hidden');
+                showSection('home', document.querySelector('.sidebar a'));
+                loadUserData(); loadInvestmentPlans(); loadTasks(); loadHistory();
+            } else {
+                currentUser = null;
+                authContainer.classList.remove('hidden');
+                dashboardContainer.classList.add('hidden');
+                menuToggle.classList.add('hidden');
+                if (sidebar.classList.contains('open')) sidebar.classList.remove('open');
+                Object.values(countdownIntervals).forEach(clearInterval);
+            }
+        });
+        
+        // --- NAYA: Confirmation Modal Functions ---
+        const modal = document.getElementById('confirmation-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+        // Modal ko chupaane ke liye function
+        function hideConfirmation() {
+            modal.classList.add('hidden');
+        }
+        
+        // Cancel button aur overlay par click karne se modal band ho jayega
+        modalCancelBtn.addEventListener('click', hideConfirmation);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) { hideConfirmation(); }
+        });
+
+        // Yeh function modal ko dikhaye ga aur confirm button ko set karega
+        function showConfirmation(plan, onConfirm) {
+            modalTitle.innerText = 'Confirm Investment';
+            modalText.innerHTML = `Are you sure you want to invest <strong>Rs. ${plan.invest}</strong> in <strong>${plan.name}</strong>?<br>This amount will be deducted from your balance.`;
+            modal.classList.remove('hidden');
+            
+            // Purane listener ko hatana zaroori hai
+            const newConfirmBtn = modalConfirmBtn.cloneNode(true);
+            modalConfirmBtn.parentNode.replaceChild(newConfirmBtn, modalConfirmBtn);
+
+            // Naya listener add karna jo onConfirm function ko call karega
+            newConfirmBtn.addEventListener('click', () => {
+                hideConfirmation();
+                onConfirm(); // Asal investment logic yahan call hoga
+            });
+        }
+        
+        // --- TABDEEL SHUDA: investNow Function ---
+        function investNow(planIndex) {
+            const plan = investmentPlans[planIndex];
+            
+            // Asal investment logic ab ek alag function ban gaya hai
+            const executeInvestment = () => {
+                const userRef = db.ref('users/' + currentUser.uid);
+                userRef.once('value', snap => {
+                    const userData = snap.val();
+                    if (userData && userData.balance >= plan.invest) {
+                        const invData = { userId: currentUser.uid, planName: plan.name, amount: plan.invest, dailyEarning: plan.daily, validity: plan.validity, status: 'approved', date: new Date().toISOString(), lastClaimed: 0 };
+                        let updates = {};
+                        updates[`/users/${currentUser.uid}/balance`] = userData.balance - plan.invest;
+                        updates[`/investments/${db.ref('investments').push().key}`] = invData;
+                        
+                        db.ref().update(updates).then(() => {
+                            showNotification("Plan activated successfully!");
+                            showSection('task', document.querySelector("a[onclick*='task']"));
+                        });
+                    } else {
+                        showNotification("Insufficient balance.", "danger");
+                    }
+                });
+            };
+
+            // Browser ke confirm() ke bajaye, hamara naya pop-up call hoga
+            showConfirmation(plan, executeInvestment);
+        }
+
+        // --- Baaqi Functions (jese the wese hi rahenge) ---
+        loadInvestmentPlans = () => { const container = document.getElementById('investment-plans-container'); container.innerHTML = ''; investmentPlans.forEach((plan, index) => { container.innerHTML += `<div class="plan-card"><h3>${plan.name}</h3><p style="font-size:28px;font-weight:bold;">Rs. ${plan.invest.toLocaleString()}</p><p>Daily: Rs. ${plan.daily}</p><p>Validity: ${plan.validity} days</p><button class="invest-btn" onclick="investNow(${index})">Invest Now</button></div>`; }); };
+        loadUserData = () => { db.ref('users/' + currentUser.uid).on('value', snap => { const data = snap.val(); if (data) { document.getElementById('current-balance').innerText = `Rs. ${parseFloat(data.balance || 0).toFixed(2)}`; document.getElementById('user-email-display').innerText = data.email; document.getElementById('profile-email').innerText = data.email; document.getElementById('profile-number').innerText = data.number; if (data.signupDate) { const signupDate = new Date(data.signupDate); document.getElementById('profile-signup-date').innerText = signupDate.toLocaleString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }); } } }); };
+        signupUser = () => { const email = document.getElementById('signup-email').value, number = document.getElementById('signup-number').value, password = document.getElementById('signup-password').value; if (!email || !number || !password) { showNotification("Please fill all fields.", "danger"); return; } auth.createUserWithEmailAndPassword(`${number}@growthprofit.com`, password).then(cred => db.ref('users/' + cred.user.uid).set({ email, number, signupDate: new Date().toISOString(), balance: 0 })).then(() => { showNotification("Signup successful!"); toggleForms(); }).catch(err => showNotification(err.message, "danger")); };
+        loginUser = () => { const number = document.getElementById('login-number').value, password = document.getElementById('login-password').value; if (!number || !password) { showNotification("Please fill all fields.", "danger"); return; } auth.signInWithEmailAndPassword(`${number}@growthprofit.com`, password).catch(err => showNotification(err.message, "danger")); };
+        logoutUser = () => { auth.signOut(); };
+        submitDeposit = () => { const amountInput = document.getElementById('deposit-amount'); const methodSelect = document.getElementById('payment-method'); const tidInput = document.getElementById('transaction-id'); const numberInput = document.getElementById('sending-number'); const amount = parseFloat(amountInput.value); if (isNaN(amount) || amount < 20) { showNotification("Minimum deposit is Rs. 20.", "danger"); return; } if (!tidInput.value || !numberInput.value) { showNotification("Please fill all fields.", "danger"); return; } const depositData = { userId: currentUser.uid, amount: amount, method: methodSelect.value, tid: tidInput.value, sendingNumber: numberInput.value, status: 'processing', date: new Date().toISOString() }; db.ref('deposits').push(depositData).then(() => { showNotification("Deposit request is processing."); amountInput.value = ''; tidInput.value = ''; numberInput.value = ''; methodSelect.selectedIndex = 0; showSection('history', document.querySelector("a[onclick*='history']")); }); };
+        loadTasks = () => { const container = document.getElementById('task-list-container'); db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).on('value', snapshot => { container.innerHTML = ''; let hasTasks = false; snapshot.forEach(child => { const key = child.key; const task = child.val(); if (task.status === 'approved') { hasTasks = true; container.innerHTML += `<div class="task-card" id="task-${key}"><h3>${task.planName}</h3><p>Daily Earning: <strong>Rs. ${task.dailyEarning}</strong></p><button id="btn-${key}" class="invest-btn claim-btn" onclick="claimEarning('${key}')">Claim Earning</button><p id="timer-${key}" style="font-size:14px;margin-top:10px;"></p></div>`; updateClaimButton(key, task.lastClaimed); } }); if (!hasTasks) { container.innerHTML = "<p>You have no active investment plans. Go to the Investment section to get started.</p>"; } }); };
+        updateClaimButton = (key, lastClaimed) => { if (countdownIntervals[key]) clearInterval(countdownIntervals[key]); const btn = document.getElementById(`btn-${key}`); const timer = document.getElementById(`timer-${key}`); if (!btn || !timer) return; const twentyFourHours = 24 * 60 * 60 * 1000; const nextClaimTime = lastClaimed + twentyFourHours; countdownIntervals[key] = setInterval(() => { const now = new Date().getTime(); const distance = nextClaimTime - now; if (distance < 0) { timer.innerHTML = "Ready to Claim"; btn.disabled = false; btn.innerText = "Claim Earning"; clearInterval(countdownIntervals[key]); } else { const hours = Math.floor(distance / (1000 * 60 * 60)); const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)); const seconds = Math.floor((distance % (1000 * 60)) / 1000); timer.innerHTML = `Next claim in: ${hours}h ${minutes}m ${seconds}s`; btn.disabled = true; btn.innerText = "Claimed"; } }, 1000); };
+        claimEarning = (key) => { const userRef = db.ref('users/' + currentUser.uid); const investmentRef = db.ref('investments/' + key); db.ref().once('value', snapshot => { const userData = snapshot.child('users/' + currentUser.uid).val(); const invData = snapshot.child('investments/' + key).val(); if (userData && invData) { let updates = {}; updates[`/users/${currentUser.uid}/balance`] = (userData.balance || 0) + invData.dailyEarning; updates[`/investments/${key}/lastClaimed`] = new Date().getTime(); db.ref().update(updates).then(() => { showNotification(`Successfully claimed Rs. ${invData.dailyEarning}!`); }); } }); };
+        loadHistory = () => { const depTable = document.getElementById('deposit-history-table'); const invTable = document.getElementById('investment-history-table'); const wthTable = document.getElementById('withdrawal-history-table'); const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }; db.ref('deposits').orderByChild('userId').equalTo(currentUser.uid).on('value', snap => { depTable.innerHTML = ''; snap.forEach(c => { const d = c.val(); depTable.innerHTML = `<tr><td>${new Date(d.date).toLocaleString('en-GB', options)}</td><td>Rs. ${d.amount}</td><td>${d.method}</td><td>${d.tid}</td><td>${d.status}</td></tr>` + depTable.innerHTML; }); }); db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).on('value', snap => { invTable.innerHTML = ''; snap.forEach(c => { const d = c.val(); invTable.innerHTML = `<tr><td>${new Date(d.date).toLocaleString('en-GB', options)}</td><td>${d.planName}</td><td>Rs. ${d.amount}</td><td>${d.status}</td></tr>` + invTable.innerHTML; }); }); db.ref('withdrawals').orderByChild('userId').equalTo(currentUser.uid).on('value', snap => { wthTable.innerHTML = ''; snap.forEach(c => { const d = c.val(); wthTable.innerHTML = `<tr><td>${new Date(d.date).toLocaleString('en-GB', options)}</td><td>Rs. ${d.amount}</td><td>${d.method}</td><td>${d.account}</td><td>${d.status}</td></tr>` + wthTable.innerHTML; }); }); };
+        submitWithdrawal = () => { const amount = parseFloat(document.getElementById('withdraw-amount').value); const method = document.getElementById('withdraw-method').value; const account = document.getElementById('withdraw-account').value; if (isNaN(amount) || amount <= 0) { showNotification("Please enter a valid amount.", "danger"); return; } if (!account) { showNotification("Please enter your account number.", "danger"); return; } const userRef = db.ref('users/' + currentUser.uid); userRef.once('value').then(snapshot => { const userData = snapshot.val(); const currentBalance = userData.balance || 0; if (amount > currentBalance) { showNotification("Insufficient balance.", "danger"); return; } const newBalance = currentBalance - amount; const withdrawalData = { userId: currentUser.uid, amount: amount, method: method, account: account, status: 'processing', date: new Date().toISOString() }; const newWithdrawalKey = db.ref('withdrawals').push().key; let updates = {}; updates['/withdrawals/' + newWithdrawalKey] = withdrawalData; updates['/users/' + currentUser.uid + '/balance'] = newBalance; return db.ref().update(updates); }).then(() => { showNotification("Withdrawal request submitted."); document.getElementById('withdraw-amount').value = ''; document.getElementById('withdraw-account').value = ''; showSection('history', document.querySelector("a[onclick*='history']")); }).catch(error => { console.error("Withdrawal failed: ", error); showNotification("An error occurred.", "danger"); }); };
+    
+    </script>
+</body>
+</html>
