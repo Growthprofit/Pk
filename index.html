@@ -90,6 +90,7 @@
         input, select { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; background: #f9f9f9; }
         button { width: 100%; padding: 14px; background: linear-gradient(90deg, #0d6efd, #0dcaf0); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; transition: opacity 0.3s; }
         button:hover { opacity: 0.9; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
         .card { background: linear-gradient(135deg, #0d6efd, #6f42c1); color: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
         .investment-plans, .task-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .plan-card, .task-card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05); transition: transform 0.2s; }
@@ -110,7 +111,6 @@
     
     <!-- Sidebar -->
     <nav class="sidebar">
-        <!-- Sidebar ka baaqi code waisa hi rahega -->
         <header>
             <div class="image-text">
                 <span class="image"><i class='bx bxl-firebase' style="font-size: 30px; color: #ffcb2b;"></i></span>
@@ -176,9 +176,7 @@
             { id: 7, name: "Plan 7", invest: 3000, daily: 295.2, validity: 365 }, { id: 8, name: "Plan 8", invest: 7000, daily: 685.2, validity: 365 },
             { id: 9, name: "Plan 9", invest: 15000, daily: 1430.2, validity: 365 }, { id: 10, name: "Plan 10", invest: 50000, daily: 5100.7, validity: 365 },
         ];
-
-        // --- Baaqi sab functions wese hi rahenge, sirf 'investNow' tabdeel hoga ---
-
+        
         function showNotification(message, type = 'success') {
             const notificationBox = document.getElementById('notification-box');
             notificationBox.innerText = message;
@@ -221,83 +219,180 @@
                 menuToggle.classList.add('hidden');
                 if (sidebar.classList.contains('open')) sidebar.classList.remove('open');
                 Object.values(countdownIntervals).forEach(clearInterval);
+                countdownIntervals = {};
             }
         });
         
-        // --- NAYA: Confirmation Modal Functions ---
         const modal = document.getElementById('confirmation-modal');
         const modalTitle = document.getElementById('modal-title');
         const modalText = document.getElementById('modal-text');
         const modalConfirmBtn = document.getElementById('modal-confirm-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
-
-        // Modal ko chupaane ke liye function
-        function hideConfirmation() {
-            modal.classList.add('hidden');
-        }
-        
-        // Cancel button aur overlay par click karne se modal band ho jayega
+        function hideConfirmation() { modal.classList.add('hidden'); }
         modalCancelBtn.addEventListener('click', hideConfirmation);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) { hideConfirmation(); }
-        });
-
-        // Yeh function modal ko dikhaye ga aur confirm button ko set karega
+        modal.addEventListener('click', (e) => { if (e.target === modal) { hideConfirmation(); } });
         function showConfirmation(plan, onConfirm) {
             modalTitle.innerText = 'Confirm Investment';
             modalText.innerHTML = `Are you sure you want to invest <strong>Rs. ${plan.invest}</strong> in <strong>${plan.name}</strong>?<br>This amount will be deducted from your balance.`;
             modal.classList.remove('hidden');
-            
-            // Purane listener ko hatana zaroori hai
             const newConfirmBtn = modalConfirmBtn.cloneNode(true);
             modalConfirmBtn.parentNode.replaceChild(newConfirmBtn, modalConfirmBtn);
-
-            // Naya listener add karna jo onConfirm function ko call karega
             newConfirmBtn.addEventListener('click', () => {
                 hideConfirmation();
-                onConfirm(); // Asal investment logic yahan call hoga
+                onConfirm();
             });
         }
         
-        // --- TABDEEL SHUDA: investNow Function ---
         function investNow(planIndex) {
             const plan = investmentPlans[planIndex];
-            
-            // Asal investment logic ab ek alag function ban gaya hai
-            const executeInvestment = () => {
-                const userRef = db.ref('users/' + currentUser.uid);
-                userRef.once('value', snap => {
-                    const userData = snap.val();
-                    if (userData && userData.balance >= plan.invest) {
-                        const invData = { userId: currentUser.uid, planName: plan.name, amount: plan.invest, dailyEarning: plan.daily, validity: plan.validity, status: 'approved', date: new Date().toISOString(), lastClaimed: 0 };
-                        let updates = {};
-                        updates[`/users/${currentUser.uid}/balance`] = userData.balance - plan.invest;
-                        updates[`/investments/${db.ref('investments').push().key}`] = invData;
-                        
-                        db.ref().update(updates).then(() => {
-                            showNotification("Plan activated successfully!");
-                            showSection('task', document.querySelector("a[onclick*='task']"));
-                        });
-                    } else {
-                        showNotification("Insufficient balance.", "danger");
+            const investmentsRef = db.ref('investments').orderByChild('userId').equalTo(currentUser.uid);
+            investmentsRef.once('value', snapshot => {
+                let alreadyInvested = false;
+                snapshot.forEach(child => {
+                    if (child.val().planName === plan.name) {
+                        alreadyInvested = true;
                     }
                 });
-            };
 
-            // Browser ke confirm() ke bajaye, hamara naya pop-up call hoga
-            showConfirmation(plan, executeInvestment);
+                if (alreadyInvested) {
+                    showNotification("Aap pehle hi is plan ko activate kar chuke hain.", "danger");
+                    return;
+                }
+
+                const executeInvestment = () => {
+                    const userRef = db.ref('users/' + currentUser.uid);
+                    userRef.transaction(currentData => {
+                        if (currentData && currentData.balance >= plan.invest) {
+                            currentData.balance -= plan.invest;
+                            return currentData;
+                        }
+                        return;
+                    }, (error, committed, snapshot) => {
+                        if (error) {
+                            showNotification("Aik ghalati pesh aayi. Baraye meharbani dobara koshish karein.", "danger");
+                        } else if (committed) {
+                            const invData = { userId: currentUser.uid, planName: plan.name, amount: plan.invest, dailyEarning: plan.daily, validity: plan.validity, status: 'approved', date: new Date().toISOString(), lastClaimed: 0 };
+                            db.ref('investments').push(invData).then(() => {
+                                showNotification("Plan kamyabi se activate ho gaya!");
+                                loadInvestmentPlans(); 
+                                showSection('task', document.querySelector("a[onclick*='task']"));
+                            });
+                        } else {
+                            showNotification("Na kafi balance.", "danger");
+                        }
+                    });
+                };
+                showConfirmation(plan, executeInvestment);
+            });
         }
 
+        loadInvestmentPlans = () => {
+            const container = document.getElementById('investment-plans-container');
+            container.innerHTML = '<p>Loading plans...</p>'; 
+            db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).once('value', snapshot => {
+                const activePlanNames = new Set();
+                snapshot.forEach(child => { activePlanNames.add(child.val().planName); });
+                container.innerHTML = ''; 
+                investmentPlans.forEach((plan, index) => {
+                    const isInvested = activePlanNames.has(plan.name);
+                    container.innerHTML += `<div class="plan-card"><h3>${plan.name}</h3><p style="font-size:28px;font-weight:bold;">Rs. ${plan.invest.toLocaleString()}</p><p>Daily: Rs. ${plan.daily}</p><p>Validity: ${plan.validity} days</p><button class="invest-btn" onclick="investNow(${index})" ${isInvested ? 'disabled' : ''}>${isInvested ? 'Activated' : 'Invest Now'}</button></div>`;
+                });
+            });
+        };
+        
+        // --- NAYA AUR BEHTAR: loadTasks Function ---
+        loadTasks = () => {
+            const container = document.getElementById('task-list-container');
+            const investmentsRef = db.ref('investments').orderByChild('userId').equalTo(currentUser.uid);
+
+            investmentsRef.on('value', snapshot => {
+                // Pehle tamam purane timers ko saaf karein
+                Object.values(countdownIntervals).forEach(clearInterval);
+                countdownIntervals = {};
+
+                container.innerHTML = ''; // Container ko khali karein
+                let hasTasks = false;
+
+                if (!snapshot.exists()) {
+                    container.innerHTML = "<p>You have no active investment plans. Go to the Investment section to get started.</p>";
+                    return;
+                }
+
+                snapshot.forEach(child => {
+                    const key = child.key;
+                    const task = child.val();
+
+                    if (task.status === 'approved') {
+                        hasTasks = true;
+                        
+                        // Naye andaz mein card banayein
+                        const taskCard = document.createElement('div');
+                        taskCard.className = 'task-card';
+                        taskCard.id = `task-${key}`;
+
+                        taskCard.innerHTML = `
+                            <h3>${task.planName}</h3>
+                            <p>Daily Earning: <strong>Rs. ${task.dailyEarning}</strong></p>
+                            <button id="btn-${key}" class="invest-btn claim-btn" onclick="claimEarning('${key}')">Claim Earning</button>
+                            <p id="timer-${key}" style="font-size:14px;margin-top:10px;"></p>
+                        `;
+                        
+                        container.appendChild(taskCard);
+
+                        // Card ko DOM mein daalne ke baad timer update karein
+                        updateClaimButton(key, task.lastClaimed);
+                    }
+                });
+
+                if (!hasTasks) {
+                    container.innerHTML = "<p>You have no active investment plans. Go to the Investment section to get started.</p>";
+                }
+            });
+        };
+
+        // --- NAYA AUR BEHTAR: updateClaimButton Function ---
+        updateClaimButton = (key, lastClaimed) => {
+            const btn = document.getElementById(`btn-${key}`);
+            const timer = document.getElementById(`timer-${key}`);
+            if (!btn || !timer) return;
+
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            const nextClaimTime = (lastClaimed || 0) + twentyFourHours;
+
+            // Timer ko chalaane wala function
+            const runCountdown = () => {
+                const now = new Date().getTime();
+                const distance = nextClaimTime - now;
+
+                if (distance < 0) {
+                    timer.innerHTML = "Ready to Claim";
+                    btn.disabled = false;
+                    btn.innerText = "Claim Earning";
+                    if (countdownIntervals[key]) {
+                        clearInterval(countdownIntervals[key]);
+                        delete countdownIntervals[key];
+                    }
+                } else {
+                    const hours = Math.floor(distance / (1000 * 60 * 60));
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                    timer.innerHTML = `Next claim in: ${hours}h ${minutes}m ${seconds}s`;
+                    btn.disabled = true;
+                    btn.innerText = "Claimed";
+                }
+            };
+            
+            runCountdown(); // Fori taur par state set karne ke liye
+            countdownIntervals[key] = setInterval(runCountdown, 1000); // Har second update karein
+        };
+
         // --- Baaqi Functions (jese the wese hi rahenge) ---
-        loadInvestmentPlans = () => { const container = document.getElementById('investment-plans-container'); container.innerHTML = ''; investmentPlans.forEach((plan, index) => { container.innerHTML += `<div class="plan-card"><h3>${plan.name}</h3><p style="font-size:28px;font-weight:bold;">Rs. ${plan.invest.toLocaleString()}</p><p>Daily: Rs. ${plan.daily}</p><p>Validity: ${plan.validity} days</p><button class="invest-btn" onclick="investNow(${index})">Invest Now</button></div>`; }); };
         loadUserData = () => { db.ref('users/' + currentUser.uid).on('value', snap => { const data = snap.val(); if (data) { document.getElementById('current-balance').innerText = `Rs. ${parseFloat(data.balance || 0).toFixed(2)}`; document.getElementById('user-email-display').innerText = data.email; document.getElementById('profile-email').innerText = data.email; document.getElementById('profile-number').innerText = data.number; if (data.signupDate) { const signupDate = new Date(data.signupDate); document.getElementById('profile-signup-date').innerText = signupDate.toLocaleString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }); } } }); };
         signupUser = () => { const email = document.getElementById('signup-email').value, number = document.getElementById('signup-number').value, password = document.getElementById('signup-password').value; if (!email || !number || !password) { showNotification("Please fill all fields.", "danger"); return; } auth.createUserWithEmailAndPassword(`${number}@growthprofit.com`, password).then(cred => db.ref('users/' + cred.user.uid).set({ email, number, signupDate: new Date().toISOString(), balance: 0 })).then(() => { showNotification("Signup successful!"); toggleForms(); }).catch(err => showNotification(err.message, "danger")); };
         loginUser = () => { const number = document.getElementById('login-number').value, password = document.getElementById('login-password').value; if (!number || !password) { showNotification("Please fill all fields.", "danger"); return; } auth.signInWithEmailAndPassword(`${number}@growthprofit.com`, password).catch(err => showNotification(err.message, "danger")); };
         logoutUser = () => { auth.signOut(); };
         submitDeposit = () => { const amountInput = document.getElementById('deposit-amount'); const methodSelect = document.getElementById('payment-method'); const tidInput = document.getElementById('transaction-id'); const numberInput = document.getElementById('sending-number'); const amount = parseFloat(amountInput.value); if (isNaN(amount) || amount < 20) { showNotification("Minimum deposit is Rs. 20.", "danger"); return; } if (!tidInput.value || !numberInput.value) { showNotification("Please fill all fields.", "danger"); return; } const depositData = { userId: currentUser.uid, amount: amount, method: methodSelect.value, tid: tidInput.value, sendingNumber: numberInput.value, status: 'processing', date: new Date().toISOString() }; db.ref('deposits').push(depositData).then(() => { showNotification("Deposit request is processing."); amountInput.value = ''; tidInput.value = ''; numberInput.value = ''; methodSelect.selectedIndex = 0; showSection('history', document.querySelector("a[onclick*='history']")); }); };
-        loadTasks = () => { const container = document.getElementById('task-list-container'); db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).on('value', snapshot => { container.innerHTML = ''; let hasTasks = false; snapshot.forEach(child => { const key = child.key; const task = child.val(); if (task.status === 'approved') { hasTasks = true; container.innerHTML += `<div class="task-card" id="task-${key}"><h3>${task.planName}</h3><p>Daily Earning: <strong>Rs. ${task.dailyEarning}</strong></p><button id="btn-${key}" class="invest-btn claim-btn" onclick="claimEarning('${key}')">Claim Earning</button><p id="timer-${key}" style="font-size:14px;margin-top:10px;"></p></div>`; updateClaimButton(key, task.lastClaimed); } }); if (!hasTasks) { container.innerHTML = "<p>You have no active investment plans. Go to the Investment section to get started.</p>"; } }); };
-        updateClaimButton = (key, lastClaimed) => { if (countdownIntervals[key]) clearInterval(countdownIntervals[key]); const btn = document.getElementById(`btn-${key}`); const timer = document.getElementById(`timer-${key}`); if (!btn || !timer) return; const twentyFourHours = 24 * 60 * 60 * 1000; const nextClaimTime = lastClaimed + twentyFourHours; countdownIntervals[key] = setInterval(() => { const now = new Date().getTime(); const distance = nextClaimTime - now; if (distance < 0) { timer.innerHTML = "Ready to Claim"; btn.disabled = false; btn.innerText = "Claim Earning"; clearInterval(countdownIntervals[key]); } else { const hours = Math.floor(distance / (1000 * 60 * 60)); const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)); const seconds = Math.floor((distance % (1000 * 60)) / 1000); timer.innerHTML = `Next claim in: ${hours}h ${minutes}m ${seconds}s`; btn.disabled = true; btn.innerText = "Claimed"; } }, 1000); };
-        claimEarning = (key) => { const userRef = db.ref('users/' + currentUser.uid); const investmentRef = db.ref('investments/' + key); db.ref().once('value', snapshot => { const userData = snapshot.child('users/' + currentUser.uid).val(); const invData = snapshot.child('investments/' + key).val(); if (userData && invData) { let updates = {}; updates[`/users/${currentUser.uid}/balance`] = (userData.balance || 0) + invData.dailyEarning; updates[`/investments/${key}/lastClaimed`] = new Date().getTime(); db.ref().update(updates).then(() => { showNotification(`Successfully claimed Rs. ${invData.dailyEarning}!`); }); } }); };
+        claimEarning = (key) => { const userRef = db.ref('users/' + currentUser.uid); db.ref().once('value', snapshot => { const userData = snapshot.child('users/' + currentUser.uid).val(); const invData = snapshot.child('investments/' + key).val(); if (userData && invData) { const now = new Date().getTime(); const twentyFourHours = 24 * 60 * 60 * 1000; if (now < (invData.lastClaimed || 0) + twentyFourHours) { showNotification("Aap abhi claim nahi kar sakte.", "danger"); return; } let updates = {}; updates[`/users/${currentUser.uid}/balance`] = (userData.balance || 0) + invData.dailyEarning; updates[`/investments/${key}/lastClaimed`] = now; db.ref().update(updates).then(() => { showNotification(`Successfully claimed Rs. ${invData.dailyEarning}!`); }); } }); };
         loadHistory = () => { const depTable = document.getElementById('deposit-history-table'); const invTable = document.getElementById('investment-history-table'); const wthTable = document.getElementById('withdrawal-history-table'); const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }; db.ref('deposits').orderByChild('userId').equalTo(currentUser.uid).on('value', snap => { depTable.innerHTML = ''; snap.forEach(c => { const d = c.val(); depTable.innerHTML = `<tr><td>${new Date(d.date).toLocaleString('en-GB', options)}</td><td>Rs. ${d.amount}</td><td>${d.method}</td><td>${d.tid}</td><td>${d.status}</td></tr>` + depTable.innerHTML; }); }); db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).on('value', snap => { invTable.innerHTML = ''; snap.forEach(c => { const d = c.val(); invTable.innerHTML = `<tr><td>${new Date(d.date).toLocaleString('en-GB', options)}</td><td>${d.planName}</td><td>Rs. ${d.amount}</td><td>${d.status}</td></tr>` + invTable.innerHTML; }); }); db.ref('withdrawals').orderByChild('userId').equalTo(currentUser.uid).on('value', snap => { wthTable.innerHTML = ''; snap.forEach(c => { const d = c.val(); wthTable.innerHTML = `<tr><td>${new Date(d.date).toLocaleString('en-GB', options)}</td><td>Rs. ${d.amount}</td><td>${d.method}</td><td>${d.account}</td><td>${d.status}</td></tr>` + wthTable.innerHTML; }); }); };
         submitWithdrawal = () => { const amount = parseFloat(document.getElementById('withdraw-amount').value); const method = document.getElementById('withdraw-method').value; const account = document.getElementById('withdraw-account').value; if (isNaN(amount) || amount <= 0) { showNotification("Please enter a valid amount.", "danger"); return; } if (!account) { showNotification("Please enter your account number.", "danger"); return; } const userRef = db.ref('users/' + currentUser.uid); userRef.once('value').then(snapshot => { const userData = snapshot.val(); const currentBalance = userData.balance || 0; if (amount > currentBalance) { showNotification("Insufficient balance.", "danger"); return; } const newBalance = currentBalance - amount; const withdrawalData = { userId: currentUser.uid, amount: amount, method: method, account: account, status: 'processing', date: new Date().toISOString() }; const newWithdrawalKey = db.ref('withdrawals').push().key; let updates = {}; updates['/withdrawals/' + newWithdrawalKey] = withdrawalData; updates['/users/' + currentUser.uid + '/balance'] = newBalance; return db.ref().update(updates); }).then(() => { showNotification("Withdrawal request submitted."); document.getElementById('withdraw-amount').value = ''; document.getElementById('withdraw-account').value = ''; showSection('history', document.querySelector("a[onclick*='history']")); }).catch(error => { console.error("Withdrawal failed: ", error); showNotification("An error occurred.", "danger"); }); };
     
