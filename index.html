@@ -244,47 +244,66 @@
         }
         
         function investNow(planIndex) {
-            const plan = investmentPlans[planIndex];
-            const investmentsRef = db.ref('investments').orderByChild('userId').equalTo(currentUser.uid);
-            investmentsRef.once('value', snapshot => {
-                let alreadyInvested = false;
-                snapshot.forEach(child => {
-                    if (child.val().planName === plan.name) {
-                        alreadyInvested = true;
-                    }
-                });
+    // Yeh line click kiye gaye plan ko uske index (0, 1, 2...) se select karti hai.
+    const plan = investmentPlans[planIndex]; 
 
-                if (alreadyInvested) {
-                    showNotification("Aap pehle hi is plan ko activate kar chuke hain.", "danger");
-                    return;
-                }
+    // Agar plan na miley to ghalti ka paigham dein
+    if (!plan) {
+        showNotification("Ghalat plan select kiya gaya.", "danger");
+        return;
+    }
 
-                const executeInvestment = () => {
-                    const userRef = db.ref('users/' + currentUser.uid);
-                    userRef.transaction(currentData => {
-                        if (currentData && currentData.balance >= plan.invest) {
-                            currentData.balance -= plan.invest;
-                            return currentData;
-                        }
-                        return;
-                    }, (error, committed, snapshot) => {
-                        if (error) {
-                            showNotification("Aik ghalati pesh aayi. Baraye meharbani dobara koshish karein.", "danger");
-                        } else if (committed) {
-                            const invData = { userId: currentUser.uid, planName: plan.name, amount: plan.invest, dailyEarning: plan.daily, validity: plan.validity, status: 'approved', date: new Date().toISOString(), lastClaimed: 0 };
-                            db.ref('investments').push(invData).then(() => {
-                                showNotification("Plan kamyabi se activate ho gaya!");
-                                loadInvestmentPlans(); 
-                                showSection('task', document.querySelector("a[onclick*='task']"));
-                            });
-                        } else {
-                            showNotification("Na kafi balance.", "danger");
-                        }
-                    });
-                };
-                showConfirmation(plan, executeInvestment);
-            });
+    const investmentsRef = db.ref('investments').orderByChild('userId').equalTo(currentUser.uid);
+    investmentsRef.once('value', snapshot => {
+        let alreadyInvested = false;
+        snapshot.forEach(child => {
+            if (child.val().planName === plan.name) {
+                alreadyInvested = true;
+            }
+        });
+
+        if (alreadyInvested) {
+            showNotification("Aap pehle hi is plan ko activate kar chuke hain.", "danger");
+            return;
         }
+
+        const executeInvestment = () => {
+            const userRef = db.ref('users/' + currentUser.uid);
+            userRef.transaction(currentData => {
+                if (currentData && currentData.balance >= plan.invest) {
+                    currentData.balance -= plan.invest;
+                    return currentData;
+                }
+                return; // Agar balance na kafi ho to transaction cancel
+            }, (error, committed, snapshot) => {
+                if (error) {
+                    showNotification("Aik ghalati pesh aayi. Dobara koshish karein.", "danger");
+                } else if (committed) {
+                    // Investment ka data banayein
+                    const invData = {
+                        userId: currentUser.uid,
+                        planName: plan.name, // Sahi plan ka naam
+                        amount: plan.invest, // Sahi plan ki raqam
+                        dailyEarning: plan.daily,
+                        validity: plan.validity,
+                        status: 'approved',
+                        date: new Date().toISOString(),
+                        lastClaimed: 0
+                    };
+                    db.ref('investments').push(invData).then(() => {
+                        showNotification("Plan kamyabi se activate ho gaya!");
+                        loadInvestmentPlans();
+                        showSection('task', document.querySelector("a[onclick*='task']"));
+                    });
+                } else {
+                    showNotification("Na kafi balance.", "danger");
+                }
+            });
+        };
+        // Confirmation pop-up dikhayein
+        showConfirmation(plan, executeInvestment);
+    });
+}
 
         loadInvestmentPlans = () => {
             const container = document.getElementById('investment-plans-container');
