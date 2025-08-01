@@ -61,6 +61,58 @@
         .plan-card, .task-card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05); transition: transform 0.2s; }
         .invest-btn { background: var(--success-color); }
         .claim-btn:disabled { background: #6c757d; cursor: not-allowed; }
+    
+    /* --- NAYA WHATSAPP CARD KA STYLE --- */
+.whatsapp-card {
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+    text-align: center;
+    display: block;
+    text-decoration: none;
+    transition: transform 0.2s;
+}
+.whatsapp-card:hover {
+    transform: scale(1.03);
+}
+.whatsapp-card i {
+    font-size: 40px;
+    margin-bottom: 10px;
+    display: block;
+}
+.whatsapp-card h3 {
+    color: white;
+    margin: 0;
+    font-size: 1.2rem;
+}
+    
+/* --- NAYA UPDATE CARD KA STYLE (FINAL) --- */
+.update-card {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+    padding: 15px 0; /* Upar-neeche padding, left-right nahi */
+    border-radius: 12px;
+    margin-bottom: 20px;
+    overflow: hidden; 
+    white-space: nowrap; 
+}
+
+.marquee-container {
+    animation: marquee 10s linear infinite;
+}
+
+.marquee-text {
+    display: inline-block;
+    padding-right: 50px; /* Text ke darmiyan thora fasla */
+}
+
+@keyframes marquee {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); } /* 50% is liye kyunke ab do text hain */
+}
+    
         @media (max-width: 768px) { #menu-toggle { display: flex; } .sidebar { left: -250px; } .sidebar.open { left: 0; box-shadow: 0 0 25px rgba(0,0,0,0.2); } .main-content { left: 0; width: 100%; padding-top: 80px; } }
     </style>
 </head>
@@ -229,7 +281,20 @@
         function showNotification(message, type = 'success') { const notificationBox = document.getElementById('notification-box'); notificationBox.innerText = message; notificationBox.className = type; notificationBox.classList.remove('hidden'); setTimeout(() => { notificationBox.classList.add('hidden'); }, 3000); }
         function showSection(sectionId, navLink) { document.querySelectorAll('#dashboard-container .content-section').forEach(s => s.classList.add('hidden')); document.getElementById(sectionId + '-content').classList.remove('hidden'); document.querySelectorAll('.sidebar .menu-links a').forEach(a => a.classList.remove('active')); if(navLink) navLink.classList.add('active'); if (window.innerWidth <= 768 && sidebar.classList.contains('open')) sidebar.classList.remove('open'); }
         function toggleForms() { document.getElementById('login-container').classList.toggle('hidden'); document.getElementById('signup-container').classList.toggle('hidden'); }
-        function initializeHTML() { authContainer.innerHTML = `<div id="login-container" class="content-section"><h2>Login</h2><input type="text" id="login-number" placeholder="Phone Number"><input type="password" id="login-password" placeholder="Password"><button onclick="loginUser()">Login</button><p style="text-align:center; margin-top:20px;">No account? <a href="#" onclick="toggleForms()">Sign Up</a></p></div><div id="signup-container" class="content-section hidden"><h2>Sign Up</h2><input type="email" id="signup-email" placeholder="Email"><input type="text" id="signup-number" placeholder="Phone Number"><input type="password" id="signup-password" placeholder="Password"><button onclick="signupUser()">Sign Up</button><p style="text-align:center; margin-top:20px;">Have an account? <a href="#" onclick="toggleForms()">Login</a></p></div>`; dashboardContainer.innerHTML = `<div id="home-content" class="content-section"><div class="card"><h3>Current Balance</h3><h2 id="current-balance" style="font-size:2.5rem;color:white;">Rs. 0.00</h2></div><h2>Welcome, <span id="user-email-display"></span>!</h2><p>Manage everything from the sidebar menu.</p></div><div id="deposit-content" class="content-section hidden"><h2>Deposit Funds</h2><p>Send to <strong>03262550724</strong> (Easypaisa/Jazzcash).</p><input type="number" id="deposit-amount" placeholder="Min Amount Rs. 20"><select id="payment-method"><option>Easypaisa</option><option>Jazzcash</option></select><input type="text" id="transaction-id" placeholder="Transaction ID"><input type="text" id="sending-number" placeholder="Your Sending Number"><button onclick="submitDeposit()">Submit</button></div><div id="invest-content" class="content-section hidden"><h2>Investment Plans</h2><div id="investment-plans-container" class="investment-plans"></div></div><div id="task-content" class="content-section hidden"><h2>Daily Tasks</h2><p>Claim daily earnings from your active plans.</p><div id="task-list-container" class="task-list"></div></div><div id="send-content" class="content-section hidden"><h2>Send Money</h2><input type="number" id="withdraw-amount" placeholder="Amount"><select id="withdraw-method"><option>Easypaisa</option><option>Jazzcash</option></select><input type="text" id="withdraw-account" placeholder="Account Number"><button onclick="submitWithdrawal()">Request</button></div><div id="history-content" class="content-section hidden"><h2>Transaction History</h2><h3 style="margin-top:20px">Deposits</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>TID</th><th>Status</th></tr></thead><tbody id="deposit-history-table"></tbody></table></div><h3 style="margin-top:30px">Investments</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Plan</th><th>Amount</th><th>Status</th></tr></thead><tbody id="investment-history-table"></tbody></table></div><h3 style="margin-top:30px">Withdrawals</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Account</th><th>Status</th></tr></thead><tbody id="withdrawal-history-table"></tbody></table></div></div><div id="profile-content" class="content-section hidden"><h2>My Profile</h2><p><strong>Email:</strong> <span id="profile-email"></span></p><p><strong>Phone:</strong> <span id="profile-number"></span></p><p><strong>Member Since:</strong> <span id="profile-signup-date"></span></p></div>`; }
+        function initializeHTML() { authContainer.innerHTML = `<div id="login-container" class="content-section"><h2>Login</h2><input type="text" id="login-number" placeholder="Phone Number"><input type="password" id="login-password" placeholder="Password"><button onclick="loginUser()">Login</button><p style="text-align:center; margin-top:20px;">No account? <a href="#" onclick="toggleForms()">Sign Up</a></p></div><div id="signup-container" class="content-section hidden"><h2>Sign Up</h2><input type="email" id="signup-email" placeholder="Email"><input type="text" id="signup-number" placeholder="Phone Number"><input type="password" id="signup-password" placeholder="Password"><button onclick="signupUser()">Sign Up</button><p style="text-align:center; margin-top:20px;">Have an account? <a href="#" onclick="toggleForms()">Login</a></p></div>`; dashboardContainer.innerHTML = `<div id="home-content" class="content-section">
+            <div class="update-card">
+    <div class="marquee-container">
+        <span class="marquee-text">Wait for new updates</span>
+        <span class="marquee-text">Wait for new updates</span>
+    </div>
+</div>
+            <div class="card"><h3>Current Balance</h3><h2 id="current-balance" style="font-size:2.5rem;color:white;">Rs. 0.00</h2></div>
+            <!-- NAYA WHATSAPP CARD YAHAN ADD KAREIN -->
+<a href="https://whatsapp.com/channel/0029Vb75jzK1SWt4tA8hvD3g" target="_blank" class="whatsapp-card">
+    <i class='bx bxl-whatsapp'></i>
+    <h3>Get Updates on WhatsApp</h3>
+</a>
+            <h2>Welcome, <span id="user-email-display"></span>!</h2><p>Manage everything from the sidebar menu.</p></div><div id="deposit-content" class="content-section hidden"><h2>Deposit Funds</h2><p>Send to <strong>03262550724</strong> (Easypaisa/Jazzcash).</p><input type="number" id="deposit-amount" placeholder="Min Amount Rs. 20"><select id="payment-method"><option>Easypaisa</option><option>Jazzcash</option></select><input type="text" id="transaction-id" placeholder="Transaction ID"><input type="text" id="sending-number" placeholder="Your Sending Number"><button onclick="submitDeposit()">Submit</button></div><div id="invest-content" class="content-section hidden"><h2>Investment Plans</h2><div id="investment-plans-container" class="investment-plans"></div></div><div id="task-content" class="content-section hidden"><h2>Daily Tasks</h2><p>Claim daily earnings from your active plans.</p><div id="task-list-container" class="task-list"></div></div><div id="send-content" class="content-section hidden"><h2>Send Money</h2><input type="number" id="withdraw-amount" placeholder="Amount"><select id="withdraw-method"><option>Easypaisa</option><option>Jazzcash</option></select><input type="text" id="withdraw-account" placeholder="Account Number"><button onclick="submitWithdrawal()">Request</button></div><div id="history-content" class="content-section hidden"><h2>Transaction History</h2><h3 style="margin-top:20px">Deposits</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>TID</th><th>Status</th></tr></thead><tbody id="deposit-history-table"></tbody></table></div><h3 style="margin-top:30px">Investments</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Plan</th><th>Amount</th><th>Status</th></tr></thead><tbody id="investment-history-table"></tbody></table></div><h3 style="margin-top:30px">Withdrawals</h3><div style="overflow-x:auto;"><table><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Account</th><th>Status</th></tr></thead><tbody id="withdrawal-history-table"></tbody></table></div></div><div id="profile-content" class="content-section hidden"><h2>My Profile</h2><p><strong>Email:</strong> <span id="profile-email"></span></p><p><strong>Phone:</strong> <span id="profile-number"></span></p><p><strong>Member Since:</strong> <span id="profile-signup-date"></span></p></div>`; }
         loadUserData = () => { db.ref('users/' + currentUser.uid).on('value', snap => { const data = snap.val(); if (data) { document.getElementById('current-balance').innerText = `Rs. ${parseFloat(data.balance || 0).toFixed(2)}`; document.getElementById('user-email-display').innerText = data.email; document.getElementById('profile-email').innerText = data.email; document.getElementById('profile-number').innerText = data.number; if (data.signupDate) { const signupDate = new Date(data.signupDate); document.getElementById('profile-signup-date').innerText = signupDate.toLocaleString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }); } } }); };
         signupUser = () => { const email = document.getElementById('signup-email').value, number = document.getElementById('signup-number').value, password = document.getElementById('signup-password').value; if (!email || !number || !password) { showNotification("Please fill all fields.", "danger"); return; } auth.createUserWithEmailAndPassword(`${number}@growthprofit.com`, password).then(cred => db.ref('users/' + cred.user.uid).set({ email, number, signupDate: new Date().toISOString(), balance: 0 })).then(() => { showNotification("Signup successful!"); toggleForms(); }).catch(err => showNotification(err.message, "danger")); };
         loginUser = () => { const number = document.getElementById('login-number').value, password = document.getElementById('login-password').value; if (!number || !password) { showNotification("Please fill all fields.", "danger"); return; } auth.signInWithEmailAndPassword(`${number}@growthprofit.com`, password).catch(err => showNotification(err.message, "danger")); };
