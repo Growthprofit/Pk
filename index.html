@@ -306,22 +306,35 @@
         }
         
         function handleReferralCommission(investmentAmount) {
-            const userRef = db.ref('users/' + currentUser.uid);
-            userRef.once('value', userSnap => {
-                const userData = userSnap.val();
-                if (userData && userData.referredBy !== 'none') {
-                    const referrerRef = db.ref('users/' + userData.referredBy);
-                    const commissionAmount = investmentAmount * 0.10; // 10% commission
-                    referrerRef.transaction(currentData => {
-                        if (currentData) {
-                            currentData.balance = (currentData.balance || 0) + commissionAmount;
-                            currentData.referralEarnings = (currentData.referralEarnings || 0) + commissionAmount;
-                        }
-                        return currentData;
-                    });
+    const userRef = db.ref('users/' + currentUser.uid);
+    userRef.once('value', userSnap => {
+        const userData = userSnap.val();
+        // Check karein ke user kisi ne refer kiya hai ya nahi
+        if (userData && userData.referredBy && userData.referredBy !== 'none') {
+            const referrerId = userData.referredBy;
+            const referrerRef = db.ref('users/' + referrerId);
+
+            // Commission rate set karein
+            let commissionRate = 0.10; // Default commission 10%
+
+            // Agar referrer خاص user hai, to commission 15% kar dein
+            if (referrerId === "DQ2qJK8kU0eipggOfrACA2nOEzu1") {
+                commissionRate = 0.15; // Special user ke liye 15% commission
+            }
+
+            const commissionAmount = investmentAmount * commissionRate;
+
+            // Referrer ka balance aur earnings update karein
+            referrerRef.transaction(currentData => {
+                if (currentData) {
+                    currentData.balance = (currentData.balance || 0) + commissionAmount;
+                    currentData.referralEarnings = (currentData.referralEarnings || 0) + commissionAmount;
                 }
+                return currentData;
             });
         }
+    });
+}
 
         function checkForReferralCodeInURL() {
             const params = new URLSearchParams(window.location.search);
