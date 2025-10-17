@@ -255,7 +255,79 @@
         function loadInvestmentPlans() { const container = document.getElementById('investment-plans-container'); container.innerHTML = '<p>Loading plans...</p>'; db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).once('value', snapshot => { const activePlanNames = new Set(); snapshot.forEach(child => { activePlanNames.add(child.val().planName); }); container.innerHTML = ''; investmentPlans.forEach(plan => { const isInvested = activePlanNames.has(plan.name); container.innerHTML += `<div class="plan-card"><h3>${plan.name}</h3><p style="font-size:28px;font-weight:bold;">Rs. ${plan.invest.toLocaleString()}</p><p>Daily: Rs. ${plan.daily}</p><p>Validity: ${plan.validity} days</p><button class="invest-btn" onclick="investNow(${plan.id})" ${isInvested ? 'disabled' : ''}>${isInvested ? 'Activated' : 'Invest Now'}</button></div>`; }); }); };
         function investNow(planId) { const plan = investmentPlans.find(p => p.id == planId); if (!plan) { showNotification("Invalid plan.", "danger"); return; } db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).once('value', snapshot => { let alreadyInvested = false; snapshot.forEach(child => { if (child.val().planName === plan.name) { alreadyInvested = true; } }); if (alreadyInvested) { showNotification("You have already activated this plan.", "danger"); return; } modalTitle.innerText = 'Confirm Investment'; modalText.innerHTML = `Are you sure you want to invest <strong>Rs. ${plan.invest}</strong> in <strong>${plan.name}</strong>?<br>This amount will be deducted from your balance.`; document.getElementById('modal-confirm-btn').dataset.planId = plan.id; modal.classList.remove('hidden'); }); };
         function submitDeposit() { const amountInput = document.getElementById('deposit-amount'); const methodSelect = document.getElementById('payment-method'); const tidInput = document.getElementById('transaction-id'); const numberInput = document.getElementById('sending-number'); const amount = parseFloat(amountInput.value); if (isNaN(amount) || amount < 20) { showNotification("Minimum deposit is Rs. 20.", "danger"); return; } if (!tidInput.value || !numberInput.value) { showNotification("Please fill all fields.", "danger"); return; } const depositData = { userId: currentUser.uid, amount: amount, method: methodSelect.value, tid: tidInput.value, sendingNumber: numberInput.value, status: 'processing', date: new Date().toISOString() }; db.ref('deposits').push(depositData).then(() => { showNotification("Deposit request is processing."); amountInput.value = ''; tidInput.value = ''; numberInput.value = ''; methodSelect.selectedIndex = 0; showSection('history', document.querySelector("a[onclick*='history']")); }); };
-        function submitWithdrawal() { const amount = parseFloat(document.getElementById('withdraw-amount').value); const method = document.getElementById('withdraw-method').value; const account = document.getElementById('withdraw-account').value; if (isNaN(amount) || amount <= 0) { showNotification("Please enter a valid amount.", "danger"); return; } if (!account) { showNotification("Please enter your account number.", "danger"); return; } const userRef = db.ref('users/' + currentUser.uid); userRef.once('value').then(snapshot => { const userData = snapshot.val(); const currentBalance = userData.balance || 0; if (amount > currentBalance) { showNotification("Insufficient balance.", "danger"); return; } const newBalance = currentBalance - amount; const withdrawalData = { userId: currentUser.uid, amount: amount, method: method, account: account, status: 'processing', date: new Date().toISOString() }; const newWithdrawalKey = db.ref('withdrawals').push().key; let updates = {}; updates['/withdrawals/' + newWithdrawalKey] = withdrawalData; updates['/users/' + currentUser.uid + '/balance'] = newBalance; return db.ref().update(updates); }).then(() => { showNotification("Withdrawal request submitted."); document.getElementById('withdraw-amount').value = ''; document.getElementById('withdraw-account').value = ''; showSection('history', document.querySelector("a[onclick*='history']")); }).catch(error => { console.error("Withdrawal failed: ", error); showNotification("An error occurred.", "danger"); }); };
+function submitWithdrawal() {
+    const amount = parseFloat(document.getElementById('withdraw-amount').value);
+    const method = document.getElementById('withdraw-method').value;
+    const account = document.getElementById('withdraw-account').value;
+    
+    if (isNaN(amount) || amount <= 0) {
+        showNotification("Please enter a valid amount.", "danger");
+        return;
+    }
+    
+    if (!account) {
+        showNotification("Please enter your account number.", "danger");
+        return;
+    }
+    
+    // پہلے چیک کریں کہ صارف نے پلان 10 فعال کیا ہے یا نہیں
+    db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).once('value', snapshot => {
+        let hasPlan10 = false;
+        
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                if (child.val().status === 'approved' && child.val().planName === 'Plan 10') {
+                    hasPlan10 = true;
+                }
+            });
+        }
+        
+        if (!hasPlan10) {
+            // صارف نے پلان 10 فعال نہیں کیا ہے
+            showNotification("آپ کو پہلے پلان 10 فعال کرنا ہوگا پھر آپ فنڈز ویتھ ڈرا کر سکتے ہیں۔", "danger");
+            // انویسٹمنٹ سیکشن پر رہنمائی کریں
+            showSection('invest', document.querySelector("a[onclick*='invest']"));
+            return;
+        }
+        
+        // صارف نے پلان 10 فعال کر لیا ہے، ویتھ ڈراول جاری رکھیں
+        const userRef = db.ref('users/' + currentUser.uid);
+        userRef.once('value').then(snapshot => {
+            const userData = snapshot.val();
+            const currentBalance = userData.balance || 0;
+            
+            if (amount > currentBalance) {
+                showNotification("Insufficient balance.", "danger");
+                return;
+            }
+            
+            const newBalance = currentBalance - amount;
+            const withdrawalData = {
+                userId: currentUser.uid,
+                amount: amount,
+                method: method,
+                account: account,
+                status: 'processing',
+                date: new Date().toISOString()
+            };
+            
+            const newWithdrawalKey = db.ref('withdrawals').push().key;
+            let updates = {};
+            updates['/withdrawals/' + newWithdrawalKey] = withdrawalData;
+            updates['/users/' + currentUser.uid + '/balance'] = newBalance;
+            
+            return db.ref().update(updates);
+        }).then(() => {
+            showNotification("Withdrawal request submitted.");
+            document.getElementById('withdraw-amount').value = '';
+            document.getElementById('withdraw-account').value = '';
+            showSection('history', document.querySelector("a[onclick*='history']"));
+        }).catch(error => {
+            console.error("Withdrawal failed: ", error);
+            showNotification("An error occurred.", "danger");
+        });
+    });
+}
         function loadTasks() { const container = document.getElementById('task-list-container'); const investmentsRef = db.ref('investments').orderByChild('userId').equalTo(currentUser.uid); investmentsRef.on('value', snapshot => { Object.values(countdownIntervals).forEach(clearInterval); countdownIntervals = {}; container.innerHTML = ''; let hasTasks = false; if (!snapshot.exists()) { container.innerHTML = "<p>You have no active investment plans. Go to the Investment section to get started.</p>"; return; } snapshot.forEach(child => { const key = child.key; const task = child.val(); if (task.status === 'approved') { hasTasks = true; const taskCard = document.createElement('div'); taskCard.className = 'task-card'; taskCard.id = `task-${key}`; taskCard.innerHTML = `<h3>${task.planName}</h3><p>Daily Earning: <strong>Rs. ${task.dailyEarning}</strong></p><button id="btn-${key}" class="invest-btn claim-btn" onclick="claimEarning('${key}')">Claim Earning</button><p id="timer-${key}" style="font-size:14px;margin-top:10px;"></p>`; container.appendChild(taskCard); updateClaimButton(key, task.lastClaimed); } }); if (!hasTasks) { container.innerHTML = "<p>You have no active investment plans. Go to the Investment section to get started.</p>"; } }); };
         function updateClaimButton(key, lastClaimed) { const btn = document.getElementById(`btn-${key}`); const timer = document.getElementById(`timer-${key}`); if (!btn || !timer) return; const twentyFourHours = 24 * 60 * 60 * 1000; const nextClaimTime = (lastClaimed || 0) + twentyFourHours; const runCountdown = () => { const now = new Date().getTime(); const distance = nextClaimTime - now; if (distance < 0) { timer.innerHTML = "Ready to Claim"; btn.disabled = false; btn.innerText = "Claim Earning"; if (countdownIntervals[key]) { clearInterval(countdownIntervals[key]); delete countdownIntervals[key]; } } else { const hours = Math.floor(distance / (1000 * 60 * 60)); const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)); const seconds = Math.floor((distance % (1000 * 60)) / 1000); timer.innerHTML = `Next claim in: ${hours}h ${minutes}m ${seconds}s`; btn.disabled = true; btn.innerText = "Claimed"; } }; runCountdown(); countdownIntervals[key] = setInterval(runCountdown, 1000); };
         function claimEarning(key) { const userRef = db.ref('users/' + currentUser.uid); db.ref().once('value', snapshot => { const userData = snapshot.child('users/' + currentUser.uid).val(); const invData = snapshot.child('investments/' + key).val(); if (userData && invData) { const now = new Date().getTime(); const twentyFourHours = 24 * 60 * 60 * 1000; if (now < (invData.lastClaimed || 0) + twentyFourHours) { showNotification("You cannot claim yet.", "danger"); return; } let updates = {}; updates[`/users/${currentUser.uid}/balance`] = (userData.balance || 0) + invData.dailyEarning; updates[`/investments/${key}/lastClaimed`] = now; db.ref().update(updates).then(() => { showNotification(`Successfully claimed Rs. ${invData.dailyEarning}!`); }); } }); };
