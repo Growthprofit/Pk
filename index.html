@@ -270,27 +270,81 @@ function submitWithdrawal() {
         return;
     }
     
-    // پہلے چیک کریں کہ صارف نے پلان 10 فعال کیا ہے یا نہیں
-    db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).once('value', snapshot => {
-        let hasPlan10 = false;
+    // صارف کی معلومات حاصل کریں
+    db.ref('users/' + currentUser.uid).once('value', userSnapshot => {
+        const userData = userSnapshot.val();
+        const hasReferralCommission = userData && userData.referralEarnings && userData.referralEarnings > 0;
         
-        if (snapshot.exists()) {
-            snapshot.forEach(child => {
-                if (child.val().status === 'approved' && child.val().planName === 'Plan 10') {
-                    hasPlan10 = true;
+        // صارف کے انویسٹمنٹ پلانز حاصل کریں
+        db.ref('investments').orderByChild('userId').equalTo(currentUser.uid).once('value', investmentsSnapshot => {
+            let hasActivePlan = false;
+            let hasHighValuePlan = false;
+            let firstPlanDate = null;
+            
+            if (investmentsSnapshot.exists()) {
+                investmentsSnapshot.forEach(child => {
+                    if (child.val().status === 'approved') {
+                        hasActivePlan = true;
+                        const planId = parseInt(child.val().planName.replace('Plan ', ''));
+                        if (planId >= 10) {
+                            hasHighValuePlan = true;
+                        }
+                        
+                        // پہلے پلان کی تاریخ حاصل کریں
+                        const planDate = new Date(child.val().date);
+                        if (!firstPlanDate || planDate < firstPlanDate) {
+                            firstPlanDate = planDate;
+                        }
+                    }
+                });
+            }
+            
+            // اگر صارف کے پاس کوئی فعال پلان نہیں ہے، تو وہ ویتھ ڈرا نہیں کر سکتا
+            if (!hasActivePlan) {
+                showNotification("آپ کو پہلے کوئی پلان فعال کرنا ہوگا پھر آپ فنڈز ویتھ ڈرا کر سکتے ہیں۔", "danger");
+                showSection('invest', document.querySelector("a[onclick*='invest']"));
+                return;
+            }
+            
+            // اگر صارف کو ریفرل کمیشن نہیں ملتا، تو وہ ویتھ ڈرا کر سکتا ہے
+            if (!hasReferralCommission) {
+                proceedWithWithdrawal();
+                return;
+            }
+            
+            // اگر صارف کو ریفرل کمیشن ملتا ہے، تو ہمیں چیک کرنا ہوگا کہ پہلے پلان فعال ہوا یا ریفرل کمیشن ملا
+            db.ref('referralEarnings').orderByChild('userId').equalTo(currentUser.uid).once('value', referralSnapshot => {
+                let firstReferralDate = null;
+                
+                if (referralSnapshot.exists()) {
+                    referralSnapshot.forEach(child => {
+                        const referralDate = new Date(child.val().date);
+                        if (!firstReferralDate || referralDate < firstReferralDate) {
+                            firstReferralDate = referralDate;
+                        }
+                    });
                 }
+                
+                // اگر پہلے پلان فعال ہوا تھا، تو صارف ویتھ ڈرا کر سکتا ہے
+                if (firstPlanDate && firstReferralDate && firstPlanDate < firstReferralDate) {
+                    proceedWithWithdrawal();
+                    return;
+                }
+                
+                // اگر پہلے ریفرل کمیشن ملا تھا، تو صارف کو پلان 10 یا اس سے زیادہ فعال کرنا ہوگا
+                if (!hasHighValuePlan) {
+                    showNotification("آپ کو ریفرل کمیشن ملتا ہے، لہذا آپ کو پہلے پلان 10 یا اس سے زیادہ فعال کرنا ہوگا پھر آپ فنڈز ویتھ ڈرا کر سکتے ہیں۔", "danger");
+                    showSection('invest', document.querySelector("a[onclick*='invest']"));
+                    return;
+                }
+                
+                // اگر صارف کے پاس پلان 10 یا اس سے زیادہ ہے، تو وہ ویتھ ڈرا کر سکتا ہے
+                proceedWithWithdrawal();
             });
-        }
-        
-        if (!hasPlan10) {
-            // صارف نے پلان 10 فعال نہیں کیا ہے
-            showNotification("آپ کو پہلے پلان 10 فعال کرنا ہوگا پھر آپ فنڈز ویتھ ڈرا کر سکتے ہیں۔", "danger");
-            // انویسٹمنٹ سیکشن پر رہنمائی کریں
-            showSection('invest', document.querySelector("a[onclick*='invest']"));
-            return;
-        }
-        
-        // صارف نے پلان 10 فعال کر لیا ہے، ویتھ ڈراول جاری رکھیں
+        });
+    });
+    
+    function proceedWithWithdrawal() {
         const userRef = db.ref('users/' + currentUser.uid);
         userRef.once('value').then(snapshot => {
             const userData = snapshot.val();
@@ -326,7 +380,7 @@ function submitWithdrawal() {
             console.error("Withdrawal failed: ", error);
             showNotification("An error occurred.", "danger");
         });
-    });
+    }
 }
         function loadTasks() { const container = document.getElementById('task-list-container'); const investmentsRef = db.ref('investments').orderByChild('userId').equalTo(currentUser.uid); investmentsRef.on('value', snapshot => { Object.values(countdownIntervals).forEach(clearInterval); countdownIntervals = {}; container.innerHTML = ''; let hasTasks = false; if (!snapshot.exists()) { container.innerHTML = "<p>You have no active investment plans. Go to the Investment section to get started.</p>"; return; } snapshot.forEach(child => { const key = child.key; const task = child.val(); if (task.status === 'approved') { hasTasks = true; const taskCard = document.createElement('div'); taskCard.className = 'task-card'; taskCard.id = `task-${key}`; taskCard.innerHTML = `<h3>${task.planName}</h3><p>Daily Earning: <strong>Rs. ${task.dailyEarning}</strong></p><button id="btn-${key}" class="invest-btn claim-btn" onclick="claimEarning('${key}')">Claim Earning</button><p id="timer-${key}" style="font-size:14px;margin-top:10px;"></p>`; container.appendChild(taskCard); updateClaimButton(key, task.lastClaimed); } }); if (!hasTasks) { container.innerHTML = "<p>You have no active investment plans. Go to the Investment section to get started.</p>"; } }); };
         function updateClaimButton(key, lastClaimed) { const btn = document.getElementById(`btn-${key}`); const timer = document.getElementById(`timer-${key}`); if (!btn || !timer) return; const twentyFourHours = 24 * 60 * 60 * 1000; const nextClaimTime = (lastClaimed || 0) + twentyFourHours; const runCountdown = () => { const now = new Date().getTime(); const distance = nextClaimTime - now; if (distance < 0) { timer.innerHTML = "Ready to Claim"; btn.disabled = false; btn.innerText = "Claim Earning"; if (countdownIntervals[key]) { clearInterval(countdownIntervals[key]); delete countdownIntervals[key]; } } else { const hours = Math.floor(distance / (1000 * 60 * 60)); const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)); const seconds = Math.floor((distance % (1000 * 60)) / 1000); timer.innerHTML = `Next claim in: ${hours}h ${minutes}m ${seconds}s`; btn.disabled = true; btn.innerText = "Claimed"; } }; runCountdown(); countdownIntervals[key] = setInterval(runCountdown, 1000); };
